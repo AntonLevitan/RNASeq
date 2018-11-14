@@ -4,9 +4,9 @@ import math
 import argparse
 import numpy as np
 
-REFERENCE_READS = "CA_count.txt"
+REFERENCE_READS = "CA_count_hapA.txt"
 TRANSLATION_FILE = "translation table orf19--_A22 complete list.xlsx"
-EXAMINED_READS = "ca25_count"
+EXAMINED_READS = "A1_in_A_count"
 PLOT_SUFFIX = '.png'
 READ_COUNT_SUFFIX = '.txt'
 
@@ -32,18 +32,24 @@ def log2_reads(x):
         if x > 0:
             return math.log2(x)
         else:
-            return 0.000001
+            return 0
 
 
 def mapping_reads(read_count):
 
-    features = pd.read_excel(TRANSLATION_FILE).drop("orf192", axis=1)
-    reads = pd.read_csv(read_count, delimiter="\t", )
-    reads.columns = ["orf19", "read_count"]
-    mapped_reads = features.merge(reads, on="orf19")
-    mapped_reads['chromosome'] = mapped_reads['A22'].str.split('_', 1).str[0]
-
-    return mapped_reads
+    # features = pd.read_excel(TRANSLATION_FILE).drop("orf192", axis=1)
+    reads = pd.read_csv(read_count, delimiter="\t", header=None)
+    reads = reads.iloc[:-5, :]
+    reads.columns = ['A22', "read_count"]
+    # reads['read_count'] = reads['read_count'].apply(lambda x: x + 1)
+    # reads = features.merge(reads, on="orf19")
+    reads['chromosome'] = reads['A22'].str.split('_', 1).str[0]
+    reads['haplotype'] = reads['A22'].str.split('_', 2).str[2]
+    reads = reads[reads['haplotype'] == 'A']
+    reads['norm_reads'] = reads['read_count']/sum(reads['read_count'])*1000000
+    print(sum(reads['read_count']))
+    reads.to_excel('reads_hapA.xlsx')
+    return reads
 
 
 def matched_normalization():
@@ -52,16 +58,18 @@ def matched_normalization():
     examined = mapping_reads(READ_COUNT_FILE)
 
     examined['ref_reads'] = reference['read_count']
+    examined['norm_ref_reads'] = reference['norm_reads']
     examined['reads_ratio'] = examined['read_count']/examined['ref_reads']
-    examined['reads_log2_ratio'] = examined['reads_ratio'].apply(lambda x: log2_reads(x))
-    examined = examined.replace(0, 0.000001)
-    examined = examined.replace(np.inf, 0.000001)
-    examined = examined.fillna(0.000001)
+    examined['norm_ratio'] = examined['norm_reads']/examined['norm_ref_reads']
+    examined['reads_log2_ratio'] = examined['norm_ratio'].apply(lambda x: math.log2(x))
+    #examined = examined.replace(0, 0.000001)
+    #examined = examined.replace(np.inf, 0.000001)
+    #examined = examined.fillna(0.000001)
     examined['log2_reads_ma10'] = examined['reads_log2_ratio'].rolling(window=10).mean()
 
     avg = examined.groupby(['chromosome']).mean()
     print(avg)
-    examined.to_excel('mapped_reads.xlsx')
+    examined.to_excel('reads.xlsx')
 
     return examined
 
@@ -87,6 +95,7 @@ def plot_reads():
             axs[i].bar(chromosome['A22'], chromosome["ma_log2_reads_100"], width=1.0)
         else:
             axs[i].bar(chromosome['A22'], chromosome["reads_log2_ratio"], width=1.0)
+            axs[i].axhline(chromosome["log2_reads_ma10"].mean(), color='green', linewidth=2)
 
     if settings.ma10:
         plt.savefig(EXAMINED_READS + '_ma10_' + PLOT_SUFFIX)
@@ -97,4 +106,4 @@ def plot_reads():
 
 
 if __name__ == "__main__":
-    plot_reads()
+    mapping_reads(REFERENCE_READS)
