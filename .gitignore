@@ -1,0 +1,38 @@
+A1_in_A.fastq
+A1_in_A_count.txt
+A1_in_A.bam
+A1_in_A.txt
+A1_in_A.bam.bai
+A1_in_B.bam
+A1_in_B.fastq
+A1_in_B.txt
+A1_in_B.bam.bai
+A1_out_A_count.txt
+A22_CA_count.txt
+A22_current_features.gff
+CA_count_hapA.txt
+C_albicans_SC5314_A21_current_features.gff
+C_albicans_SC5314_A22_current_chromosomes.fasta
+C_albicans_SC5314_A22_current_features.gff
+Log.out
+Log.final.out
+Log.progress.out
+SJ.out.tab
+ca25_count.txt
+feng_rnaseq.txt
+haplotype_A_A22_current chromosomes.fasta
+reads_hapA.xlsx
+source activate base.bam
+source activate base.txt
+translate_features.py
+translation table orf19--_A22 complete list.xlsx
+genome/A22_diploid_current_chromosomes.fasta
+genome/Genome
+genome/SA
+genome/SAindex
+genome/chrLength.txt
+genome/chrName.txt
+genome/chrNameLength.txt
+genome/chrStart.txt
+genome/genomeParameters.txt
+genome/haplotype_A_A22_current_chromosomes.fasta

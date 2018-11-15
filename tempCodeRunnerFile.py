@@ -1,2 +1,2 @@
 
-    return examined
+    unzipped.close()
