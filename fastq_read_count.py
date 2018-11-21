@@ -124,6 +124,7 @@ def matched_normalization():
     examined['norm_ratio'] = examined['norm_reads']/examined['norm_ref_reads']
     examined['reads_log2_ratio'] = examined['norm_ratio'].apply(lambda x: math.log2(x))
     examined['log2_reads_ma10'] = examined['reads_log2_ratio'].rolling(window=10).mean()
+    examined['log2_reads_ma100'] = examined['reads_log2_ratio'].rolling(window=100).mean()
     avg = examined.groupby(['chromosome']).mean()
     print(avg)
     examined.to_excel(excel_file)

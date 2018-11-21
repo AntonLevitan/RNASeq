@@ -38,7 +38,7 @@ def plot_reads():
             axs[i].bar(chromosome['A22'], chromosome['log2_reads_ma10'], width=1.0)
             axs[i].axhline(chromosome["log2_reads_ma10"].mean(), color='green', linewidth=2)
         elif settings.ma100:
-            axs[i].bar(chromosome['A22'], chromosome['ma_log2_reads_100'], width=1.0)
+            axs[i].bar(chromosome['A22'], chromosome['log2_reads_ma100'], width=1.0)
         else:
             axs[i].bar(chromosome['A22'], chromosome['reads_log2_ratio'], width=1.0)
             axs[i].axhline(chromosome['reads_log2_ratio'].mean(), color='green', linewidth=2)

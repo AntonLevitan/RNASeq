@@ -53,7 +53,7 @@ def rpkm(counts, start, end):
 
 
 def fpkm():
-    # for pairwise, look it up when needed
+    # for pairwise alignment- fragments instead of reads, look it up when needed
     pass
 
 
