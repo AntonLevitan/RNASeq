@@ -4,29 +4,46 @@ from io import BytesIO
 import gzip
 import os
 import subprocess
+import pandas as pd
+import pysam
+import math
+import argparse
 
 A22_CHR_URL = 'http://candidagenome.org/download/sequence/C_albicans_SC5314/Assembly22/current/C_albicans_SC5314_A22_current_chromosomes.fasta.gz'
 A22_GFF_URL = 'http://candidagenome.org/download/gff/C_albicans_SC5314/Assembly22/C_albicans_SC5314_A22_current_features.gff'
-DATA_DIRECTORY = 'genome' + os.sep
+DATA_DIRECTORY = 'Data' + os.sep
 DIPLOID_FILENAME = 'A22_diploid_current_chromosomes.fasta'
 HAPLOTYPE_A_FILENAME = 'haplotype_A_A22_current_chromosomes.fasta'
 A22_CURRENT_FEATURES_GFF = 'A22_current_features.gff'
 
-file_name_prefix = input('Input raw fastq filename here: ')
+# input filename without specifying filetype
+file_name_prefix = input('Input examined filename here: ')
 
 fastq_file = file_name_prefix + '.fastq'
 bam_file = file_name_prefix + '.bam'
 count_file = file_name_prefix + '.txt'
+csv_file = file_name_prefix + '.csv'
 
-if not os.path.exists(A22_CURRENT_FEATURES_GFF):
-    urlretrieve(A22_GFF_URL, A22_CURRENT_FEATURES_GFF)
+matched_norm_flag = '--mm'
+
+
+def arguments():
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(matched_norm_flag, dest='mm', action='store_true')
+
+    return parser.parse_args()
+
+
+if not os.path.exists(DATA_DIRECTORY):
+        os.makedirs(DATA_DIRECTORY)
+
+if not os.path.exists(DATA_DIRECTORY + A22_CURRENT_FEATURES_GFF):
+    urlretrieve(A22_GFF_URL, DATA_DIRECTORY + A22_CURRENT_FEATURES_GFF)
     print('downloaded {} file'.format(A22_CURRENT_FEATURES_GFF))
 
 
 def download_gzip(url, filename):
-
-    if not os.path.exists(DATA_DIRECTORY):
-        os.makedirs(DATA_DIRECTORY)
 
     download = urlopen(url)
     zipped = BytesIO(download.read())
@@ -55,14 +72,63 @@ if not os.path.exists(DATA_DIRECTORY + HAPLOTYPE_A_FILENAME):
     SeqIO.write(haplotype_A, DATA_DIRECTORY + HAPLOTYPE_A_FILENAME, 'fasta')
     print('created {} file'.format(HAPLOTYPE_A_FILENAME))
 
-if not os.path.exists(bam_file):
+if not os.path.exists(DATA_DIRECTORY + bam_file):
     subprocess.call(['STAR', '--runThreadN 12', '--runMode genomeGenerate', '--genomeDir ' + DATA_DIRECTORY, '--genomeFastaFiles ' + DATA_DIRECTORY + HAPLOTYPE_A_FILENAME, '--sjdbGTFtagExonParentTranscript ID'])
-    subprocess.call(['STAR', '--runThreadN 12', '--outSAMstrandField intronMotif', '--genomeDir ' + DATA_DIRECTORY, '--readFilesIn ' + fastq_file, '--outSAMtype BAM SortedByCoordinate', '--alignIntronMin 30', '--alignIntronMax 1000'])
-    subprocess.call(['mv', 'Aligned.sortedByCoord.out.bam', bam_file])
-    subprocess.call(['samtools', 'index', bam_file])
+    subprocess.call(['STAR', '--runThreadN 12', '--outSAMstrandField intronMotif', '--genomeDir ' + DATA_DIRECTORY, '--readFilesIn ' + fastq_file, '--outSAMtype BAM SortedByCoordinate', '--outFileNamePrefix ' + DATA_DIRECTORY + file_name_prefix, '--alignIntronMin 30', '--alignIntronMax 1000'])
+    subprocess.call(['mv', DATA_DIRECTORY + file_name_prefix + 'Aligned.sortedByCoord.out.bam', DATA_DIRECTORY + bam_file])
+    pysam.index(DATA_DIRECTORY + bam_file)
 
+# TODO: change this to a direct python implementation using HTSeq library
+# https://media.readthedocs.org/pdf/htseq/release_0.10.0/htseq.pdf
 if not os.path.exists(count_file):
     count_logfile = open(count_file, 'w')
-    proc = subprocess.Popen(['htseq-count', '-t', 'gene', '-i', 'ID', '-f', 'bam', bam_file, A22_CURRENT_FEATURES_GFF], stdout=count_logfile)
+    proc = subprocess.Popen(['htseq-count', '--stranded=no', '-t', 'gene', '-i', 'ID', '-f', 'bam', DATA_DIRECTORY + bam_file, DATA_DIRECTORY + A22_CURRENT_FEATURES_GFF], stdout=count_logfile)
     proc.wait()
     proc.kill()
+
+
+def mapping_reads(data, output_data):
+
+    data = pd.read_csv(data, delimiter="\t", header=None)
+    reads = data.iloc[:-5, :]
+    reads.columns = ['A22', 'read_count']
+    reads['read_count'] = reads['read_count'] + 1
+    reads['chromosome'] = reads['A22'].str.split('_', 1).str[0]
+    reads = reads[reads['A22'].str.split('_', 2).str[2] == 'A']
+    reads['norm_reads'] = reads['read_count']/sum(reads['read_count'])*1000000
+    print('')
+    print('mapped to features: ' + str(sum(reads['read_count'])))
+    print('total reads: ' + str(sum(data.iloc[:, 1])))
+    print('ratio: ' + str(sum(reads['read_count'])/sum(data.iloc[:, 1])))
+    reads.to_csv(output_data)
+    return reads
+
+
+if not os.path.exists(csv_file):
+    mapping_reads(count_file, csv_file)
+
+
+def matched_normalization():
+
+    reference_file_prefix = input('Input reference filename here: ')
+    reference_txt = reference_file_prefix + '.txt'
+    reference_csv = reference_file_prefix + '.csv'
+    excel_file = file_name_prefix + '_' + reference_file_prefix + '.xlsx'
+    
+    reference = mapping_reads(reference_txt, reference_csv)
+    examined = mapping_reads(count_file, csv_file)
+    
+    examined['ref_reads'] = reference['read_count']
+    examined['norm_ref_reads'] = reference['norm_reads']
+    examined['reads_ratio'] = examined['read_count']/examined['ref_reads']
+    examined['norm_ratio'] = examined['norm_reads']/examined['norm_ref_reads']
+    examined['reads_log2_ratio'] = examined['norm_ratio'].apply(lambda x: math.log2(x))
+    examined['log2_reads_ma10'] = examined['reads_log2_ratio'].rolling(window=10).mean()
+    avg = examined.groupby(['chromosome']).mean()
+    print(avg)
+    examined.to_excel(excel_file)
+    return examined
+
+
+if arguments().mm:
+    matched_normalization()
