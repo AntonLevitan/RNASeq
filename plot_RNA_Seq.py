@@ -8,8 +8,6 @@ moving_average_100_flag = '--ma100'
 PLOT_SUFFIX = '.png'
 DATA_SUFFIX = '.xlsx'
 
-# 'A1_in_A_A17_in_A' = input('Input examined filename here: ')
-
 
 def arguments():
 
@@ -23,6 +21,7 @@ def arguments():
 def plot_reads():
 
     """Plots bar chart of reads in each chromosome"""
+    
     normalized = pd.read_excel('A1_in_A_A17_in_A.xlsx')
 
     settings = arguments()
@@ -34,19 +33,31 @@ def plot_reads():
 
     for i in range(len(chromosomes)):
         chromosome = normalized[normalized['chromosome'] == chromosomes[i]]
+        chromosome['ma10'] = chromosome['tpm_ratio'].rolling(window=10).mean()
+        chromosome['ma100'] = chromosome['tpm_ratio'].rolling(window=100).mean()
         if settings.ma10:
-            axs[i].bar(chromosome['A22'], chromosome['log2_reads_ma10'], width=1.0)
-            axs[i].axhline(chromosome["log2_reads_ma10"].mean(), color='green', linewidth=2)
+            axs[i].bar(chromosome['A22'], chromosome['ma10'], width=1.0)
+            axs[i].axhline(chromosome['ma10'].mean(), color='green', linewidth=2)
+            plt.ylim(0.3, 1.8)
         elif settings.ma100:
-            axs[i].bar(chromosome['A22'], chromosome['log2_reads_ma100'], width=1.0)
+            axs[i].bar(chromosome['A22'], chromosome['ma100'], width=1.0)
+            axs[i].axhline(chromosome['ma100'].mean(), color='green', alpha=0.7, linewidth=2)
+            axs[i].axhline(0.5, color='red', linewidth=2, alpha=0.3)
+            # axs[0].text('1 copy', 0.5, "{:.0f}".format(0.5), color="red", ha="right", va="center")    
+            axs[i].axhline(1, color='red', linewidth=2, alpha=0.3)
+            # axs[0].text('2 copies', 1, "{:.0f}".format(0.5), color="red", ha="right", va="center")
+            axs[i].axhline(1.5, color='red', linewidth=2, alpha=0.3)
+            # axs[0].text('3 copies', 1.5, "{:.0f}".format(0.5), color="red", ha="right", va="center")
+            # plt.ylim(0.75, 1.7)
+            axs[i].set_xlabel(chromosomes[i])
         else:
             axs[i].bar(chromosome['A22'], chromosome['reads_log2_ratio'], width=1.0)
             axs[i].axhline(chromosome['reads_log2_ratio'].mean(), color='green', linewidth=2)
 
     if settings.ma10:
-        plt.savefig('A1_in_A_A17_in_A' + '_ma10' + PLOT_SUFFIX)
+        plt.savefig('257_1_1_A17_in_A' + '_ma10_999th' + PLOT_SUFFIX)
     elif settings.ma100:
-        plt.savefig('A1_in_A_A17_in_A' + '_ma100' + PLOT_SUFFIX)
+        plt.savefig('A1_in_A_A17_in_A' + '_ma100_999th' + PLOT_SUFFIX)
     else:
         plt.savefig('A1_in_A_A1_in_B' + PLOT_SUFFIX)
 

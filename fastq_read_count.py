@@ -6,8 +6,8 @@ import os
 import subprocess
 import pandas as pd
 import pysam
-import math
 import argparse
+from normalization import rpkm, tpm
 
 A22_CHR_URL = 'http://candidagenome.org/download/sequence/C_albicans_SC5314/Assembly22/current/C_albicans_SC5314_A22_current_chromosomes.fasta.gz'
 A22_GFF_URL = 'http://candidagenome.org/download/gff/C_albicans_SC5314/Assembly22/C_albicans_SC5314_A22_current_features.gff'
@@ -95,11 +95,19 @@ def mapping_reads(data, output_data):
     reads['read_count'] = reads['read_count'] + 1
     reads['chromosome'] = reads['A22'].str.split('_', 1).str[0]
     reads = reads[reads['A22'].str.split('_', 2).str[2] == 'A']
-    reads['norm_reads'] = reads['read_count']/sum(reads['read_count'])*1000000
+    location = pd.read_csv(DATA_DIRECTORY + A22_CURRENT_FEATURES_GFF, sep='\t', skiprows=25)
+    location = location[location.iloc[:, 2] == 'gene']
+    location['name'] = location.iloc[:, 8].str.split(';', 1).str[0].str.split('=', 1).str[1]
+    location = location[location['name'].str.split('_',  2).str[2] == 'A']
+    reads['start'] = list(location.iloc[:, 3])
+    reads['end'] = list(location.iloc[:, 4])
+    reads['length'] = list(abs(reads['start'] - reads['end']))
+    reads['rpkm'] = list(rpkm(reads['read_count'], reads['length']))
+    reads['tpm'] = list(tpm(reads['read_count'], reads['length']))
     print('')
     print('mapped to features: ' + str(sum(reads['read_count'])))
     print('total reads: ' + str(sum(data.iloc[:, 1])))
-    print('ratio: ' + str(sum(reads['read_count'])/sum(data.iloc[:, 1])))
+    print('ratio: ' + str(sum(reads['read_count']) / sum(data.iloc[:, 1])))
     reads.to_csv(output_data)
     return reads
 
@@ -119,12 +127,12 @@ def matched_normalization():
     examined = mapping_reads(count_file, csv_file)
     
     examined['ref_reads'] = reference['read_count']
-    examined['norm_ref_reads'] = reference['norm_reads']
-    examined['reads_ratio'] = examined['read_count']/examined['ref_reads']
-    examined['norm_ratio'] = examined['norm_reads']/examined['norm_ref_reads']
-    examined['reads_log2_ratio'] = examined['norm_ratio'].apply(lambda x: math.log2(x))
-    examined['log2_reads_ma10'] = examined['reads_log2_ratio'].rolling(window=10).mean()
-    examined['log2_reads_ma100'] = examined['reads_log2_ratio'].rolling(window=100).mean()
+    examined['ref_rpkm'] = reference['rpkm']
+    examined['ref_tpm'] = reference['tpm']
+    examined['reads_ratio'] = examined['read_count'] / examined['ref_reads']
+    examined['rpkm_ratio'] = examined['rpkm'] / reference['rpkm']
+    examined['tpm_ratio'] = examined['tpm'] / reference['tpm']
+    examined = examined[examined['reads_ratio'] < examined['reads_ratio'].quantile(.999)]
     avg = examined.groupby(['chromosome']).mean()
     print(avg)
     examined.to_excel(excel_file)
