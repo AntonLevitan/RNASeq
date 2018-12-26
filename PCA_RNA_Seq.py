@@ -10,11 +10,12 @@ from scipy import stats
 
 experiment_title = 'Alex Drug Screen'
 
-# data = pd.read_excel('alex_drug_screen.xlsx', index_col=0)
+data = pd.read_excel('alex_drug_screen.xlsx', index_col=0)
+data = data.drop(labels=['Essintial', 'S score (FLC-NoDrug)', 'S score (FLC+Geld-FLC)'], axis=1)
 # norm_data = data.loc[:'CR_10860C', 'A15_in_A:normalized.counts':'A3_out_C:normalized.counts'].dropna()
-# # norm_data = data
-#
-# k = 10
+norm_data = data
+
+k = 100
 #
 # # generate example list genes
 # # genes = ['gene' + str(i) for i in range(1, 101)]
@@ -31,28 +32,30 @@ experiment_title = 'Alex Drug Screen'
 # #     data.loc[gene, 'ko1':'ko5'] = np.random.poisson(lam=rd.randrange(10, 1000), size=5)
 #
 # # similar to StandardScaler() + fit_transform
-# scaled_data = preprocessing.scale(norm_data.T)
+scaled_data = preprocessing.scale(norm_data.T)
 #
 # # calling PCA object, fitting and transforming the scaled data to pca
-# pca = PCA(n_components=2)
-# pca.fit(scaled_data)
-# pca_data = pca.transform(scaled_data)
+pca = PCA(n_components=2)
+pca.fit(scaled_data)
+pca_data = pca.transform(scaled_data)
 #
 # # % of variation of each pca
-# per_var = np.round(pca.explained_variance_ratio_ * 100, decimals=1)
-# labels = ['PC' + str(x) for x in range(1, len(per_var) + 1)]
+per_var = np.round(pca.explained_variance_ratio_ * 100, decimals=1)
+labels = ['PC' + str(x) for x in range(1, len(per_var) + 1)]
 #
 # # PCA per sample
-# pca_per_sample = pd.DataFrame(pca_data, index=[norm_data.columns.values], columns=labels)
+pca_per_sample = pd.DataFrame(pca_data, index=[norm_data.columns.values], columns=labels)
 #
 # # take a look into the loading scores
 # # loading scores of PC1
-# loading_scores = pd.Series(pca.components_[0], index=norm_data.index.values)
-# # sort by absolute value
-# sorted_loading_scores = loading_scores.abs().sort_values(ascending=False)
-# # take the top k genes; highest loading value=highest contribution to variance in a PC
-# top_k_genes = sorted_loading_scores[0:k].index.values
-# # print(top_k_genes)
+loading_scores = pd.Series(pca.components_[0], index=norm_data.index.values)
+# sort by absolute value
+sorted_loading_scores = loading_scores.abs().sort_values(ascending=False)
+# take the top k genes; highest loading value=highest contribution to variance in a PC
+top_k_genes = sorted_loading_scores[0:k].index.values
+print(top_k_genes)
+pd.Series(top_k_genes).to_csv('top genes.csv')
+
 
 def scree_plot(variances, pc_labels, title=experiment_title):
 
@@ -85,7 +88,8 @@ def pca_plot(pca_df, title=experiment_title):
 
 def pca_scatter_all(df):
 
-    features = df.columns
+    # features = df.columns
+    features = ['S value No-Drug', 'S value Flu', 'S value FLC-Geld']
     # Separating out the features
     x = df.loc[:, features].values
     # Separating out the target
@@ -100,6 +104,7 @@ def pca_scatter_all(df):
 
     pca = PCA(n_components=2)
     principalComponents = pca.fit_transform(x)
+    # per_var = np.round(pca.explained_variance_ratio_ * 100, decimals=1)
     principalDf = pd.DataFrame(data = principalComponents
                  , columns = ['principal component 1', 'principal component 2'])
 
@@ -146,18 +151,21 @@ def pca_scatter_all(df):
     plt.show()
 
 
-
 df = pd.read_excel('alex_drug_screen.xlsx', index_col=0)
-df = df.dropna().drop(labels='Essintial', axis=1)
+df = df[df['Essintial'].isnull()]
+df = df.drop(labels='Essintial', axis=1)
 df['zscore_(FLC-NoDrug)'] = stats.zscore(list(df['S score (FLC-NoDrug)']))
 df['zscore_(FLC+Geld-FLC)'] = stats.zscore(list(df['S score (FLC+Geld-FLC)']))
 df['pvalue (FLC-NoDrug)'] = stats.norm.sf(abs(df['zscore_(FLC-NoDrug)']))
 df['pvalue (FLC+Geld-FLC)'] = stats.norm.sf(abs(df['zscore_(FLC+Geld-FLC)']))
 df2 = df[(df['pvalue (FLC-NoDrug)'] < 0.05) | (df['pvalue (FLC+Geld-FLC)'] < 0.05)]
-df.to_csv('zscore_Alex.csv')
-df2.to_csv('zscore_Alex_filtered.csv')
 
+# df.to_csv('zscore_Alex.csv')
+# df2.to_csv('zscore_Alex_filtered.csv')
+#
 # pca_scatter_all(df2)
-
-plt.scatter(df2['S score (FLC-NoDrug)'], df2['S score (FLC+Geld-FLC)'])
+# #
+plt.scatter(df2['S score (FLC-NoDrug)'], df2['S score (FLC+Geld-FLC)'], s=6)
 plt.show()
+#
+# pca_plot(pca_per_sample)
