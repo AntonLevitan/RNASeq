@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 from scipy.stats import gaussian_kde
 
 
@@ -38,7 +37,11 @@ def zfkpm(fpkm):
 
 def rpk(counts, length):
 
-    ''' normalizes read counts by gene length '''
+    """ normalizes read counts by gene length
+    :param counts:
+    :param length:
+    :return:
+    """
 
     rpk = 1000 * np.array(counts) / np.array(length)
     return rpk
@@ -46,7 +49,7 @@ def rpk(counts, length):
 
 def rpm(counts):
 
-    ''' normalizes by total library reads '''
+    """ normalizes by total library reads """
 
     total = sum(counts)
     rpm = 1000000 * np.array(counts) / total
@@ -54,8 +57,8 @@ def rpm(counts):
 
 
 def rpkm(counts, length):
-    
-    ''' normalizes first by total and then by length '''
+
+    """ normalizes first by total and then by length """
 
     rpm_counts = rpm(counts)
     rpkm = rpk(rpm_counts, length)
@@ -68,8 +71,8 @@ def fpkm():
 
 
 def tpm(counts, length):
-    
-    ''' normalizes first by length and then by total '''
+
+    """ normalizes first by length and then by total """
     
     rpk_counts = rpk(counts, length)
     tpm = rpm(rpk_counts)
