@@ -7,14 +7,12 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn import preprocessing
 from scipy import stats
+from sklearn import cluster
 
 experiment_title = 'Combined Data'
-#
-# data = pd.read_excel('alex_drug_screen.xlsx', index_col=0)
-# data = data.drop(labels=['Essintial', 'S score (FLC-NoDrug)', 'S score (FLC+Geld-FLC)'], axis=1)
-# norm_data = data.loc[:'CR_10860C', 'A15_in_A:normalized.counts':'A3_out_C:normalized.counts'].dropna()
-data = pd.read_csv('network_FLC_combined.csv')
-norm_data = data.drop(labels=['Name', 'Standard name'], axis=1)
+
+data = pd.read_csv('network_FLC_combined.csv', index_col='Name')
+norm_data = data.drop(labels=['Standard name'], axis=1)
 norm_data['AVGRAD_moursch'] = np.log2(norm_data.AVGRAD_moursch)
 norm_data['aVGFoG_moursch'] = np.log2(norm_data.aVGFoG_moursch)
 norm_data['AVGRAD_homann'] = np.log2(norm_data.AVGRAD_homann)
@@ -22,32 +20,18 @@ norm_data['aVGFoG_homann'] = np.log2(norm_data.aVGFoG_homann)
 
 corr = pd.DataFrame(np.corrcoef(norm_data.T), columns=norm_data.columns.values, index=norm_data.columns.values)
 
-k = 100
+k = 10
 
-# # similar to StandardScaler() + fit_transform
 scaled_data = preprocessing.scale(norm_data.T)
-#
-# # calling PCA object, fitting and transforming the scaled data to pca
 pca = PCA()
 pca.fit(scaled_data)
 pca_data = pca.transform(scaled_data)
-#
-# # % of variation of each pca
 per_var = np.round(pca.explained_variance_ratio_ * 100, decimals=1)
 labels = ['PC' + str(x) for x in range(1, len(per_var) + 1)]
-#
-# # PCA per sample
 pca_per_sample = pd.DataFrame(pca_data, index=[norm_data.columns.values], columns=labels)
-#
-# # take a look into the loading scores
-# # loading scores of PC1
 loading_scores = pd.Series(pca.components_[0], index=norm_data.index.values)
-# sort by absolute value
 sorted_loading_scores = loading_scores.abs().sort_values(ascending=False)
-# take the top k genes; highest loading value=highest contribution to variance in a PC
 top_k_genes = sorted_loading_scores[0:k].index.values
-print(top_k_genes)
-pd.Series(top_k_genes).to_csv('top genes.csv')
 
 
 def scree_plot(variances, pc_labels, title=experiment_title):
@@ -81,31 +65,20 @@ def pca_plot(pca_df, title=experiment_title):
 
 def pca_scatter_all(df):
 
-    # features = df.columns
     features = norm_data.columns.values
-    # Separating out the features
     x = df.loc[:, features].values
-    # Separating out the target
     y = df.index.values
-    # Standardizing the features
     x = StandardScaler().fit_transform(x)
-
-    # loading_values_plot(pca_per_sample)
-    # scree_plot(per_var, labels)
-    # pca_plot(pca_per_sample)
 
     pca = PCA(n_components=2)
     principalComponents = pca.fit_transform(x)
-    # per_var = np.round(pca.explained_variance_ratio_ * 100, decimals=1)
-    principalDf = pd.DataFrame(data = principalComponents
-                 , columns = ['principal component 1', 'principal component 2'])
-
-    finalDf = pd.concat([principalDf, pd.Series(df.index.values)], axis = 1)
+    principalDf = pd.DataFrame(data=principalComponents, columns=['principal component 1', 'principal component 2'],
+                               index=y)
 
     tested_feature_1 = 'principal component 1'
     tested_feature_2 = 'principal component 2'
-    x = finalDf[tested_feature_1]
-    y = finalDf[tested_feature_2]
+    x = principalDf[tested_feature_1]
+    y = principalDf[tested_feature_2]
 
     # definitions for the axes
     left, width = 0.1, 0.65
@@ -142,26 +115,41 @@ def pca_scatter_all(df):
     plt.savefig(tested_feature_1 + ' vs. ' + tested_feature_2 + '.png')
     plt.show()
 
-# df = pd.read_excel('alex_drug_screen.xlsx', index_col=0)
-# df = df[df['Essintial'].isnull()]
-# df = df.drop(labels='Essintial', axis=1)
-# df['zscore_(FLC-NoDrug)'] = stats.zscore(list(df['S score (FLC-NoDrug)']))
-# df['zscore_(FLC+Geld-FLC)'] = stats.zscore(list(df['S score (FLC+Geld-FLC)']))
-# df['pvalue (FLC-NoDrug)'] = stats.norm.sf(abs(df['zscore_(FLC-NoDrug)']))
-# df['pvalue (FLC+Geld-FLC)'] = stats.norm.sf(abs(df['zscore_(FLC+Geld-FLC)']))
-# df2 = df[(df['pvalue (FLC-NoDrug)'] < 0.05) | (df['pvalue (FLC+Geld-FLC)'] < 0.05)]
 
-# df.to_csv('zscore_Alex.csv')
-# df2.to_csv('zscore_Alex_filtered.csv')
+def k_means_clustering_pca(df):
+
+    features = norm_data.columns.values
+    x = df.loc[:, features].values
+    y = df.index.values
+    x = StandardScaler().fit_transform(x)
+    pca = PCA(n_components=2)
+    principalComponents = pca.fit_transform(x)
+    tested_feature_1 = 'principal component 1'
+    tested_feature_2 = 'principal component 2'
+    principalDf = pd.DataFrame(data=principalComponents, columns=[tested_feature_1, tested_feature_2], index=y)
+    k_means = cluster.KMeans(n_clusters=3, random_state=4)
+    final = k_means.fit(principalDf)
+
+    clusters = k_means.fit(principalDf).predict(principalDf)
+    centers = final.cluster_centers_
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    scatter = ax.scatter(principalDf.iloc[:, 0], principalDf.iloc[:, 1], c=clusters, s=50)
+    for i, j in centers:
+        ax.scatter(i, j, s=50, c='red', marker='+')
+    plt.xlabel('PC1 - {0}%'.format(per_var[0]))
+    plt.ylabel('PC2 - {0}%'.format(per_var[1]))
+    plt.colorbar(scatter)
+    plt.savefig('clustering.png')
+    fig.show()
+
+    genes = pd.Series(clusters, index=y)
+
+    return genes[genes == 1]
 
 
-pca_scatter_all(norm_data)
-# #
-# plt.scatter(df2['S score (FLC-NoDrug)'], df2['S score (FLC+Geld-FLC)'], s=6)
-# plt.show()
-
-
+print(k_means_clustering_pca(norm_data))
 # scree_plot(per_var, labels)
-
+# pca_scatter_all(norm_data)
 # pca_plot(pca_per_sample)
-

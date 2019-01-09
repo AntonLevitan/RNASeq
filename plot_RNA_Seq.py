@@ -55,11 +55,11 @@ def plot_reads():
             axs[i].axhline(chromosome['tpm_ratio'].mean(), color='green', linewidth=2)
 
     if settings.ma10:
-        plt.savefig('257_1_1_A17_in_A' + '_ma10_999th' + PLOT_SUFFIX)
+        plt.savefig('7-32-A-1_S6_L001_R1_001_198-32-A-1_S28_L003_R1_001' + PLOT_SUFFIX)
     elif settings.ma100:
-        plt.savefig('test2_test' + '_ma100_999th' + PLOT_SUFFIX)
+        plt.savefig('7-32-A-1_S6_L001_R1_001_198-32-A-1_S28_L003_R1_001' + PLOT_SUFFIX)
     else:
-        plt.savefig('A1_in_A_A1_in_B' + PLOT_SUFFIX)
+        plt.savefig('7-32-A-1_S6_L001_R1_001_198-32-A-1_S28_L003_R1_001' + PLOT_SUFFIX)
 
 
 plot_reads()
